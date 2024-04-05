@@ -15,5 +15,14 @@ hf_hub_download(repo_id="internlm/internlm2-chat-7b", filename="config.json", lo
 ![alt text](home_work_image\lesson2\2.png)
 
 ## 完成 浦语·灵笔2 的 图文创作 及 视觉问答 部署（需截图）
+#### 图文创作
+设置：
+![alt text](home_work_image\lesson2\灵笔的设置.png)
+结果：
+![alt text](home_work_image\lesson2\文章.png)
+#### 视觉问答——赏析图片
+![alt text](home_work_image\lesson2\赏析图片内容.png)
 
+## 完成 Lagent 工具调用 数据分析 Demo 部署
+![alt text](home_work_image\lesson2\lagent数据分析.png)
 
