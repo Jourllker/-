@@ -74,7 +74,7 @@ import json
 # 设置用户的名字
 name = '开拓者'
 # 设置需要重复添加的数据次数
-n =  5000
+n =  10000
 
 # 初始化OpenAI格式的数据结构
 data = [
@@ -729,6 +729,7 @@ xtuner train /root/ft/config/internlm2_1_8b_qlora_alpaca_e3_copy.py --work-dir /
 
 #### 2.4.3 训练结果
 但是其实无论是用哪种方式进行训练，得到的结果都是大差不差的。我们由于设置了300轮评估一次，所以我们可以对比一下300轮和600轮的评估问题结果来看看差别。
+**注：需要将pth文件转化为hf格式文件。详见下一节。**
 ```
 # 300轮
 
@@ -806,6 +807,8 @@ xtuner train /root/ft/config/internlm2_1_8b_qlora_alpaca_e3_copy.py --work-dir /
 #### 2.5.1 模型转换
 模型转换的本质其实就是将原本使用 Pytorch 训练出来的模型权重文件转换为目前通用的 Huggingface 格式文件，那么我们可以通过以下指令来实现一键转换。
 
+**注：不管是全量微调、LoRA、QLoRA，在微调完毕之后得到的都是pytorch的pth文件，我们都需要进行这样一步转换为huggingface文件。**
+
 ``` bash
 # 创建一个保存转换后 Huggingface 格式的文件夹
 mkdir -p /root/ft/huggingface
@@ -814,7 +817,7 @@ mkdir -p /root/ft/huggingface
 # xtuner convert pth_to_hf ${配置文件地址} ${权重文件地址} ${转换后模型保存地址}
 xtuner convert pth_to_hf /root/ft/train/internlm2_1_8b_qlora_alpaca_e3_copy.py /root/ft/train/iter_768.pth /root/ft/huggingface
 ```
-转换完成后，可以看到模型被转换为 Huggingface 中常用的 .bin 格式文件，这就代表着文件成功被转化为 Huggingface 格式了。
+转换完成后，可以看到模型被转换为 Huggingface 中常用的 .bin 格式文件，这就代表着文件成功被转化为 Huggingface 格式中常见的bin文件。
 ```
 |-- huggingface/
     |-- adapter_config.json
@@ -842,6 +845,8 @@ xtuner convert pth_to_hf /root/ft/train/internlm2_1_8b_qlora_alpaca_e3_copy.py /
 
 而对于全量微调的模型（full）其实是不需要进行整合这一步的，因为全量微调修改的是原模型的权重而非微调一个新的 adapter ，因此是不需要进行模型整合的。
 
+**LoRA不是一个完整的模型，需要整合；全量微调之后得到的就是一个完整的模型，不需要整合。**
+
 <img src="https://github.com/InternLM/Tutorial/assets/108343727/dbb82ca8-e0ef-41db-a8a9-7d6958be6a96" width="300" height="300">
 
 
@@ -865,9 +870,10 @@ xtuner convert merge /root/ft/model /root/ft/huggingface /root/ft/final_model
 | --is-clip | 这个参数主要用于确定模型是不是CLIP模型，假如是的话就要加上，不是就不需要添加 |
 
 > CLIP（Contrastive Language–Image Pre-training）模型是 OpenAI 开发的一种预训练模型，它能够理解图像和描述它们的文本之间的关系。CLIP 通过在大规模数据集上学习图像和对应文本之间的对应关系，从而实现了对图像内容的理解和分类，甚至能够根据文本提示生成图像。
-在模型整合完成后，我们就可以看到 final_model 文件夹里生成了和原模型文件夹非常近似的内容，包括了分词器、权重文件、配置信息等等。当我们整合完成后，我们就能够正常的调用这个模型进行对话测试了。
 
-整合完成后可以查看在 final_model 文件夹下的内容。
+在模型整合完成后，我们就可以看到 final_model 文件夹里生成了和原模型文件夹非常近似的内容，包括了分词器、权重文件、配置信息等等。当我们整合完成后，我们就能够==正常的调用这个模型进行对话测试==了。
+
+查看在 final_model 文件夹下的内容。
 ```
 |-- final_model/
     |-- tokenizer.model
@@ -886,7 +892,7 @@ xtuner convert merge /root/ft/model /root/ft/huggingface /root/ft/final_model
 ```
 
 #### 2.5.3 对话测试
-在 XTuner 中也直接的提供了一套基于 transformers 的对话代码，让我们可以直接在终端与 Huggingface 格式的模型进行对话操作。我们只需要准备我们刚刚转换好的模型路径并选择对应的提示词模版（prompt-template）即可进行对话。假如 prompt-template 选择有误，很有可能导致模型无法正确的进行回复。
+==在 XTuner 中也直接的提供了一套基于 transformers 的对话代码，让我们可以直接在终端与 Huggingface 格式的模型进行对话操作==。我们只需要准备我们刚刚转换好的模型路径并选择对应的提示词模版（prompt-template）即可进行对话。假如 prompt-template 选择有误，很有可能导致模型无法正确的进行回复。
 
 > 想要了解具体模型的 prompt-template 或者 XTuner 里支持的 prompt-tempolate，可以到 XTuner 源码中的 `xtuner/utils/templates.py` 这个文件中进行查找。
 
@@ -1271,32 +1277,13 @@ if __name__ == '__main__':
     main()
 ```
 
-在运行前，我们还需要做的就是将端口映射到本地。那首先我们使用快捷键组合 `Windows + R`（Windows 即开始菜单键）打开指令界面，并输入命令，按下回车键。（Mac 用户打开终端即可）
-
-![image](https://github.com/Jianfeng777/tutorial/assets/108343727/da78f5ab-5222-42e7-b47f-ca2a07799b58)
-
-打开 PowerShell 后，先查询端口，再根据端口键入命令 （例如图中端口示例为 38374）：
-
-![image](https://github.com/Jianfeng777/tutorial/assets/108343727/0d975df8-e02c-4c17-aee4-787d4dbb4d44)
-
-然后我们需要在 PowerShell 中输入以下内容（需要替换为自己的端口号）
-```bash
-# 从本地使用 ssh 连接 studio 端口
+然后就是端口映射，见`leesson2_do.md/3.3/客户端`。 
+```
 # 将下方端口号 38374 替换成自己的端口号
-ssh -CNg -L 6006:127.0.0.1:6006 root@ssh.intern-ai.org.cn -p 38374
+ssh -CNg -L 6006:127.0.0.1:6006 root@ssh.intern-ai.org.cn -p 43516
 ```
 
-再复制下方的密码，输入到 `password` 中，直接回车：
-
-![image](https://github.com/Jianfeng777/tutorial/assets/108343727/32f364da-6644-4344-a090-5cf1ee0387bc)
-
-
-最终保持在如下效果即可：
-
-![image](https://github.com/Jianfeng777/tutorial/assets/108343727/aab7f2eb-ea17-4434-9d56-b86e3261a2c9)
-
-
-之后我们需要输入以下命令运行 `/root/personal_assistant/code/InternLM` 目录下的 `web_demo.py` 文件。
+运行 `/root/personal_assistant/code/InternLM` 目录下的 `web_demo.py` 文件。
 
 ```bash
 streamlit run /root/ft/web_demo/InternLM/chat/web_demo.py --server.address 127.0.0.1 --server.port 6006
@@ -1307,10 +1294,6 @@ streamlit run /root/ft/web_demo/InternLM/chat/web_demo.py --server.address 127.0
 打开 [http://127.0.0.1:6006](http://127.0.0.1:6006) 后，等待加载完成即可进行对话，键入内容示例如下：
 
     请介绍一下你自己
-
-效果图如下：
-
-![image](https://github.com/Jianfeng777/tutorial/assets/108343727/6f021db9-d590-425d-b000-14760b1cb863)
 
 假如我们还想和原来的 InternLM2-Chat-1.8B 模型对话（即在 `/root/ft/model` 这里的模型对话），我们其实只需要修改183行和186行的文件地址即可。
 
@@ -1328,18 +1311,3 @@ streamlit run /root/ft/web_demo/InternLM/chat/web_demo.py --server.address 127.0
 ```bash
 streamlit run /root/ft/web_demo/InternLM/chat/web_demo.py --server.address 127.0.0.1 --server.port 6006
 ```
-
-加载完成后输入同样的问题 `请介绍一下你自己` 之后我们可以看到两个模型截然不同的回复：
-
-![image](https://github.com/Jianfeng777/tutorial/assets/108343727/7f45e22c-f473-4d6d-bae7-533bacad474b)
-
-#### 2.5.5 小结
-在这一小节里我们对微调后的模型（adapter）进行了转换及整合的操作，并通过 `xtuner chat` 来对模型进行了实际的对话测试。从结果可以清楚的看出模型的回复在微调的前后出现了明显的变化。那当我们在测试完模型认为其满足我们的需求后，我们就可以对模型进行量化部署等操作了，这部分的内容在之后关于 LMDeploy 的课程中将会详细的进行讲解，敬请期待后续的课程吧！
-
-### 2.6 总结
-在本节中主要就是带领着大家跑通了 XTuner 的一个完整流程，通过了解数据集和模型的使用方法、配置文件的制作和训练以及最后的转换及整合。那在后面假如我们也有想要微调出自己的一个模型，我们也可以尝试使用同样流程和方法进行进一步的实践！
-
-
-## 作业
-
-作业请访问[链接](./homework.md)
