@@ -1,0 +1,1 @@
+![alt text](note_image/lesson7.png)
